@@ -25,6 +25,10 @@ define( 'DRAFTFLY_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DRAFTFLY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'DRAFTFLY_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
+// Load required classes
+require_once DRAFTFLY_PLUGIN_DIR . 'includes/class-draftfly-api.php';
+require_once DRAFTFLY_PLUGIN_DIR . 'includes/class-draftfly-settings.php';
+
 /**
  * Main DraftFly class
  */
@@ -63,10 +67,12 @@ class DraftFly {
         // Initialize plugin
         add_action( 'plugins_loaded', array( $this, 'init' ) );
 
-        // Admin hooks
+        // Initialize API endpoints
+        new DraftFly_API();
+
+        // Initialize settings page
         if ( is_admin() ) {
-            add_action( 'admin_menu', array( $this, 'admin_menu' ) );
-            add_action( 'admin_init', array( $this, 'admin_init' ) );
+            new DraftFly_Settings();
         }
 
         // Frontend hooks
@@ -95,49 +101,6 @@ class DraftFly {
     public function init() {
         // Load text domain for translations
         load_plugin_textdomain( 'draftfly', false, dirname( DRAFTFLY_PLUGIN_BASENAME ) . '/languages' );
-    }
-
-    /**
-     * Admin menu
-     */
-    public function admin_menu() {
-        add_menu_page(
-            __( 'DraftFly', 'draftfly' ),           // Page title
-            __( 'DraftFly', 'draftfly' ),           // Menu title
-            'manage_options',                        // Capability
-            'draftfly',                              // Menu slug
-            array( $this, 'admin_page' ),           // Callback
-            'dashicons-edit',                        // Icon
-            30                                       // Position
-        );
-    }
-
-    /**
-     * Admin init
-     */
-    public function admin_init() {
-        // Register settings here
-        register_setting( 'draftfly_settings', 'draftfly_options' );
-    }
-
-    /**
-     * Admin page content
-     */
-    public function admin_page() {
-        ?>
-        <div class="wrap">
-            <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
-            <p><?php esc_html_e( 'Welcome to DraftFly! Configure your settings below.', 'draftfly' ); ?></p>
-
-            <form method="post" action="options.php">
-                <?php
-                settings_fields( 'draftfly_settings' );
-                do_settings_sections( 'draftfly' );
-                submit_button();
-                ?>
-            </form>
-        </div>
-        <?php
     }
 
     /**
