@@ -325,7 +325,6 @@ class DraftFly_API {
 			'content'        => array(
 				'required'          => false,
 				'type'              => 'string',
-				'sanitize_callback' => 'wp_kses_post',
 			),
 			'markdown'       => array(
 				'required'          => false,
