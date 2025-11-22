@@ -201,6 +201,24 @@ class DraftFly_Settings {
 			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
 			<p><?php esc_html_e( 'Configure DraftFly to accept posts from external platforms.', 'draftfly' ); ?></p>
 
+			<!-- Base URL Section -->
+			<div class="draftfly-card">
+				<h2><?php esc_html_e( 'Base URL', 'draftfly' ); ?></h2>
+				<p><?php esc_html_e( 'This is your WordPress site\'s base URL. Use this when configuring DraftFly.', 'draftfly' ); ?></p>
+
+				<div class="draftfly-key-display">
+					<strong><?php esc_html_e( 'Base URL:', 'draftfly' ); ?></strong><br>
+					<span id="draftfly-base-url"><?php echo esc_url( $site_url ); ?></span>
+					<button type="button" class="button draftfly-copy-btn" onclick="draftflyCopyBaseUrl()">
+						<?php esc_html_e( 'Copy', 'draftfly' ); ?>
+					</button>
+				</div>
+
+				<p class="description">
+					<?php esc_html_e( 'All API endpoints will be relative to this base URL.', 'draftfly' ); ?>
+				</p>
+			</div>
+
 			<!-- API Key Section -->
 			<div class="draftfly-card">
 				<h2><?php esc_html_e( 'API Key', 'draftfly' ); ?></h2>
@@ -209,7 +227,10 @@ class DraftFly_Settings {
 				<?php if ( $has_api_key ) : ?>
 					<div class="draftfly-key-display">
 						<strong><?php esc_html_e( 'Current API Key:', 'draftfly' ); ?></strong><br>
-						<span id="draftfly-api-key"><?php echo esc_html( $api_key ); ?></span>
+						<span id="draftfly-api-key" data-key="<?php echo esc_attr( $api_key ); ?>">••••••••••••••••••••••••••••••••••••••••</span>
+						<button type="button" class="button draftfly-copy-btn" onclick="draftflyToggleApiKey()" id="draftfly-toggle-btn">
+							<?php esc_html_e( 'Show', 'draftfly' ); ?>
+						</button>
 						<button type="button" class="button draftfly-copy-btn" onclick="draftflyCopyApiKey()">
 							<?php esc_html_e( 'Copy', 'draftfly' ); ?>
 						</button>
@@ -300,9 +321,37 @@ curl -X GET "<?php echo esc_url( $site_url ); ?>/wp-json/draftfly/v1/health" \<b
 		</div>
 
 		<script>
+		let apiKeyVisible = false;
+
+		function draftflyCopyBaseUrl() {
+			const baseUrl = document.getElementById('draftfly-base-url').textContent;
+			navigator.clipboard.writeText(baseUrl).then(function() {
+				alert('<?php esc_html_e( 'Base URL copied to clipboard!', 'draftfly' ); ?>');
+			}, function() {
+				alert('<?php esc_html_e( 'Failed to copy base URL', 'draftfly' ); ?>');
+			});
+		}
+
+		function draftflyToggleApiKey() {
+			const apiKeyElement = document.getElementById('draftfly-api-key');
+			const toggleBtn = document.getElementById('draftfly-toggle-btn');
+			const actualKey = apiKeyElement.getAttribute('data-key');
+
+			if (apiKeyVisible) {
+				apiKeyElement.textContent = '••••••••••••••••••••••••••••••••••••••••';
+				toggleBtn.textContent = '<?php esc_html_e( 'Show', 'draftfly' ); ?>';
+				apiKeyVisible = false;
+			} else {
+				apiKeyElement.textContent = actualKey;
+				toggleBtn.textContent = '<?php esc_html_e( 'Hide', 'draftfly' ); ?>';
+				apiKeyVisible = true;
+			}
+		}
+
 		function draftflyCopyApiKey() {
-			const apiKey = document.getElementById('draftfly-api-key').textContent;
-			navigator.clipboard.writeText(apiKey).then(function() {
+			const apiKeyElement = document.getElementById('draftfly-api-key');
+			const actualKey = apiKeyElement.getAttribute('data-key');
+			navigator.clipboard.writeText(actualKey).then(function() {
 				alert('<?php esc_html_e( 'API key copied to clipboard!', 'draftfly' ); ?>');
 			}, function() {
 				alert('<?php esc_html_e( 'Failed to copy API key', 'draftfly' ); ?>');
