@@ -168,17 +168,22 @@ class DraftFly_API {
 		$featured_image = $request->get_param( 'featured_image' );
 
 		// Convert markdown to HTML if provided
+		$from_markdown = false;
 		if ( ! empty( $markdown ) ) {
-			$content = $this->parsedown->text( $markdown );
+			$content       = $this->parsedown->text( $markdown );
+			$from_markdown = true;
 		}
 
 		// Map status to WordPress post status
 		$post_status = $this->map_post_status( $status );
 
+		// Sanitize content - use wp_kses_post only for user-provided HTML, not converted Markdown
+		$sanitized_content = $from_markdown ? wp_filter_post_kses( $content ) : wp_kses_post( $content );
+
 		// Create post
 		$post_data = array(
 			'post_title'   => sanitize_text_field( $title ),
-			'post_content' => wp_kses_post( $content ),
+			'post_content' => $sanitized_content,
 			'post_excerpt' => sanitize_text_field( $excerpt ),
 			'post_status'  => $post_status,
 			'post_type'    => 'post',
@@ -244,15 +249,18 @@ class DraftFly_API {
 		}
 
 		// Update content if provided (check markdown first)
-		$markdown = $request->get_param( 'markdown' );
-		$content  = $request->get_param( 'content' );
+		$markdown      = $request->get_param( 'markdown' );
+		$content       = $request->get_param( 'content' );
+		$from_markdown = false;
 
 		if ( ! is_null( $markdown ) ) {
-			$content = $this->parsedown->text( $markdown );
+			$content       = $this->parsedown->text( $markdown );
+			$from_markdown = true;
 		}
 
 		if ( ! is_null( $content ) ) {
-			$post_data['post_content'] = wp_kses_post( $content );
+			$sanitized_content           = $from_markdown ? wp_filter_post_kses( $content ) : wp_kses_post( $content );
+			$post_data['post_content'] = $sanitized_content;
 		}
 
 		// Update excerpt if provided
