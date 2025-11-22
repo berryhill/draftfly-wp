@@ -10,6 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Load Parsedown for Markdown conversion
+require_once DRAFTFLY_PLUGIN_DIR . 'includes/vendor/Parsedown.php';
+
 /**
  * DraftFly API Class
  */
@@ -21,10 +24,16 @@ class DraftFly_API {
 	const NAMESPACE = 'draftfly/v1';
 
 	/**
+	 * Parsedown instance
+	 */
+	private $parsedown;
+
+	/**
 	 * Constructor
 	 */
 	public function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+		$this->parsedown = new Parsedown();
 	}
 
 	/**
@@ -152,10 +161,16 @@ class DraftFly_API {
 	public function create_post( $request ) {
 		$title          = $request->get_param( 'title' );
 		$content        = $request->get_param( 'content' );
+		$markdown       = $request->get_param( 'markdown' );
 		$excerpt        = $request->get_param( 'excerpt' );
 		$tags           = $request->get_param( 'tags' );
 		$status         = $request->get_param( 'status' );
 		$featured_image = $request->get_param( 'featured_image' );
+
+		// Convert markdown to HTML if provided
+		if ( ! empty( $markdown ) ) {
+			$content = $this->parsedown->text( $markdown );
+		}
 
 		// Map status to WordPress post status
 		$post_status = $this->map_post_status( $status );
@@ -228,8 +243,14 @@ class DraftFly_API {
 			$post_data['post_title'] = sanitize_text_field( $title );
 		}
 
-		// Update content if provided
-		$content = $request->get_param( 'content' );
+		// Update content if provided (check markdown first)
+		$markdown = $request->get_param( 'markdown' );
+		$content  = $request->get_param( 'content' );
+
+		if ( ! is_null( $markdown ) ) {
+			$content = $this->parsedown->text( $markdown );
+		}
+
 		if ( ! is_null( $content ) ) {
 			$post_data['post_content'] = wp_kses_post( $content );
 		}
@@ -294,9 +315,14 @@ class DraftFly_API {
 				'sanitize_callback' => 'sanitize_text_field',
 			),
 			'content'        => array(
-				'required'          => $required,
+				'required'          => false,
 				'type'              => 'string',
 				'sanitize_callback' => 'wp_kses_post',
+			),
+			'markdown'       => array(
+				'required'          => false,
+				'type'              => 'string',
+				'description'       => 'Markdown content (will be converted to HTML). Takes precedence over content field.',
 			),
 			'excerpt'        => array(
 				'required'          => false,

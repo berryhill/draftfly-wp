@@ -186,6 +186,7 @@ class DraftFly_Settings {
 		$api_key     = get_option( 'draftfly_api_key' );
 		$has_api_key = ! empty( $api_key );
 		$site_url    = get_site_url();
+		$api_base_url = $site_url . '/wp-json/draftfly/v1';
 
 		// Show success messages
 		if ( isset( $_GET['message'] ) ) {
@@ -204,11 +205,11 @@ class DraftFly_Settings {
 			<!-- Base URL Section -->
 			<div class="draftfly-card">
 				<h2><?php esc_html_e( 'Base URL', 'draftfly' ); ?></h2>
-				<p><?php esc_html_e( 'This is your WordPress site\'s base URL. Use this when configuring DraftFly.', 'draftfly' ); ?></p>
+				<p><?php esc_html_e( 'This is your DraftFly API base URL. Use this when configuring DraftFly.', 'draftfly' ); ?></p>
 
 				<div class="draftfly-key-display">
 					<strong><?php esc_html_e( 'Base URL:', 'draftfly' ); ?></strong><br>
-					<span id="draftfly-base-url"><?php echo esc_url( $site_url ); ?></span>
+					<span id="draftfly-base-url"><?php echo esc_url( $api_base_url ); ?></span>
 					<button type="button" class="button draftfly-copy-btn" onclick="draftflyCopyBaseUrl()">
 						<?php esc_html_e( 'Copy', 'draftfly' ); ?>
 					</button>
