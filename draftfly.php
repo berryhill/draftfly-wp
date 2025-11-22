@@ -3,7 +3,7 @@
  * Plugin Name: DraftFly
  * Plugin URI: https://github.com/yourusername/draftfly-wp
  * Description: A simple WordPress plugin for DraftFly functionality
- * Version: 1.0.2
+ * Version: 1.0.3
  * Author: Your Name
  * Author URI: https://yourwebsite.com
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'DRAFTFLY_VERSION', '1.0.2' );
+define( 'DRAFTFLY_VERSION', '1.0.3' );
 define( 'DRAFTFLY_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DRAFTFLY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'DRAFTFLY_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
