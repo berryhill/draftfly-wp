@@ -1,0 +1,75 @@
+name: Build & Release WordPress Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'        # Trigger on version tags like v1.0.0, v0.3.2, etc.
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        id: vars
+        run: |
+          # Extract tag name: refs/tags/v1.2.3 -> v1.2.3
+          TAG_NAME="${GITHUB_REF##*/}"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+          # Strip leading 'v': v1.2.3 -> 1.2.3
+          VERSION="${TAG_NAME#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          echo "Release version: $VERSION"
+
+      - name: Build plugin zip
+        run: |
+          PLUGIN_SLUG="draftfly"
+          ZIP_NAME="${PLUGIN_SLUG}-${{ steps.vars.outputs.version }}.zip"
+
+          echo "Building $ZIP_NAME from repository root..."
+
+          # Create zip excluding development files
+          zip -r "$ZIP_NAME" . \
+            -x ".git/*" \
+               ".github/*" \
+               ".gitignore" \
+               ".roo/*" \
+               ".roomodes" \
+               ".claude/*" \
+               "composer.*" \
+               "package*.json" \
+               "node_modules/*" \
+               "vendor/*" \
+               "*.log" \
+               ".DS_Store"
+
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+          # Show zip contents for verification
+          echo "Zip contents:"
+          unzip -l "$ZIP_NAME"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.vars.outputs.tag_name }}
+          name: Release ${{ steps.vars.outputs.tag_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: ${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload plugin zip as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: draftfly-${{ steps.vars.outputs.version }}
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 90

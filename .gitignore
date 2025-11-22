@@ -1,0 +1,13 @@
+# Roo
+.roo/mcp.json
+
+# WordPress
+*.log
+.DS_Store
+node_modules/
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
