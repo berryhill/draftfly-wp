@@ -381,16 +381,15 @@ class DraftFly_API {
 	private function is_markdown( $content ) {
 		// Check for common markdown patterns
 		$markdown_patterns = array(
-			'/^#{1,6}\s/',              // Headers (# ## ### etc)
+			'/^#{1,6}\s/m',             // Headers (# ## ### etc)
 			'/\*\*.*\*\*/',             // Bold text
-			'/\*.*\*/',                 // Italic text
 			'/\[.*\]\(.*\)/',           // Links
 			'/^[-*+]\s/m',              // Unordered lists
 			'/^\d+\.\s/m',              // Ordered lists
 			'/^>\s/m',                  // Blockquotes
 			'/```/',                    // Code blocks
-			'/`.*`/',                   // Inline code
-			'/^---$/m',                 // Horizontal rules
+			'/`[^`]+`/',                // Inline code
+			'/^---+$/m',                // Horizontal rules
 		);
 
 		foreach ( $markdown_patterns as $pattern ) {
