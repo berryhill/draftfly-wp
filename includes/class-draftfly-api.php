@@ -34,6 +34,7 @@ class DraftFly_API {
 	public function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 		$this->parsedown = new Parsedown();
+		$this->parsedown->setBreaksEnabled( true ); // Convert line breaks to <br>
 	}
 
 	/**
@@ -177,8 +178,8 @@ class DraftFly_API {
 		// Map status to WordPress post status
 		$post_status = $this->map_post_status( $status );
 
-		// Sanitize content - use wp_filter_post_kses for all content (allows all post HTML)
-		$sanitized_content = wp_filter_post_kses( $content );
+		// Sanitize with wp_kses_post (allows standard post HTML)
+		$sanitized_content = wp_kses_post( $content );
 
 		// Create post
 		$post_data = array(
@@ -259,7 +260,7 @@ class DraftFly_API {
 		}
 
 		if ( ! is_null( $content ) ) {
-			$post_data['post_content'] = wp_filter_post_kses( $content );
+			$post_data['post_content'] = wp_kses_post( $content );
 		}
 
 		// Update excerpt if provided
