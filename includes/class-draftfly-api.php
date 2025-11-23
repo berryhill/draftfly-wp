@@ -160,6 +160,9 @@ class DraftFly_API {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function create_post( $request ) {
+		// Debug: Log all incoming parameters
+		error_log( 'DraftFly: create_post called with params: ' . print_r( $request->get_params(), true ) );
+
 		$title          = $request->get_param( 'title' );
 		$content        = $request->get_param( 'content' );
 		$markdown       = $request->get_param( 'markdown' );
@@ -167,6 +170,8 @@ class DraftFly_API {
 		$tags           = $request->get_param( 'tags' );
 		$status         = $request->get_param( 'status' );
 		$featured_image = $request->get_param( 'featured_image' );
+
+		error_log( 'DraftFly: featured_image value = ' . var_export( $featured_image, true ) );
 
 		// Convert markdown to HTML - check markdown field first, then auto-detect in content
 		if ( ! empty( $markdown ) ) {
@@ -207,7 +212,15 @@ class DraftFly_API {
 
 		// Handle featured image
 		if ( ! empty( $featured_image ) ) {
-			$this->set_featured_image_from_url( $post_id, $featured_image );
+			error_log( 'DraftFly: Attempting to set featured image for post ' . $post_id . ' from URL: ' . $featured_image );
+			$result = $this->set_featured_image_from_url( $post_id, $featured_image );
+			if ( $result ) {
+				error_log( 'DraftFly: Successfully set featured image with attachment ID: ' . $result );
+			} else {
+				error_log( 'DraftFly: Failed to set featured image for post ' . $post_id );
+			}
+		} else {
+			error_log( 'DraftFly: No featured_image parameter provided in request' );
 		}
 
 		$post = get_post( $post_id );
@@ -417,11 +430,17 @@ class DraftFly_API {
 		$temp_file = download_url( $image_url );
 
 		if ( is_wp_error( $temp_file ) ) {
+			error_log( 'DraftFly: Failed to download featured image from ' . $image_url . ' - ' . $temp_file->get_error_message() );
 			return false;
 		}
 
 		// Get filename from URL
-		$filename = basename( $image_url );
+		$filename = basename( parse_url( $image_url, PHP_URL_PATH ) );
+
+		// Ensure filename has extension
+		if ( ! preg_match( '/\.[a-z]{3,4}$/i', $filename ) ) {
+			$filename .= '.jpg';
+		}
 
 		// Prepare file array
 		$file_array = array(
@@ -432,12 +451,14 @@ class DraftFly_API {
 		// Upload and attach to post
 		$attachment_id = media_handle_sideload( $file_array, $post_id );
 
-		// Clean up temp file
-		if ( ! is_wp_error( $attachment_id ) ) {
-			set_post_thumbnail( $post_id, $attachment_id );
-			return $attachment_id;
+		// Clean up temp file if sideload failed
+		if ( is_wp_error( $attachment_id ) ) {
+			@unlink( $temp_file );
+			error_log( 'DraftFly: Failed to sideload featured image - ' . $attachment_id->get_error_message() );
+			return false;
 		}
 
-		return false;
+		set_post_thumbnail( $post_id, $attachment_id );
+		return $attachment_id;
 	}
 }
