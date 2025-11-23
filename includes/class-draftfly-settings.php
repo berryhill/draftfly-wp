@@ -23,7 +23,9 @@ class DraftFly_Settings {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_post_draftfly_generate_api_key', array( $this, 'generate_api_key' ) );
 		add_action( 'admin_post_draftfly_revoke_api_key', array( $this, 'revoke_api_key' ) );
+		add_action( 'admin_post_draftfly_clear_logs', array( $this, 'clear_logs' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
+		add_action( 'wp_ajax_draftfly_get_logs', array( $this, 'ajax_get_logs' ) );
 	}
 
 	/**
@@ -103,6 +105,30 @@ class DraftFly_Settings {
 			.draftfly-copy-btn {
 				margin-left: 10px;
 			}
+			.draftfly-logs {
+				background: #1e1e1e;
+				color: #d4d4d4;
+				font-family: "Courier New", Courier, monospace;
+				font-size: 12px;
+				padding: 15px;
+				border-radius: 4px;
+				height: 400px;
+				overflow-y: auto;
+				white-space: pre-wrap;
+				word-wrap: break-word;
+			}
+			.draftfly-logs .log-error {
+				color: #f48771;
+			}
+			.draftfly-logs .log-success {
+				color: #89d185;
+			}
+			.draftfly-logs .log-info {
+				color: #6cb6ff;
+			}
+			.draftfly-log-actions {
+				margin-top: 10px;
+			}
 			'
 		);
 	}
@@ -180,6 +206,91 @@ class DraftFly_Settings {
 	}
 
 	/**
+	 * Clear debug logs
+	 */
+	public function clear_logs() {
+		// Verify nonce
+		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], 'draftfly_clear_logs' ) ) {
+			wp_die( __( 'Security check failed', 'draftfly' ) );
+		}
+
+		// Check permissions
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( __( 'You do not have permission to perform this action', 'draftfly' ) );
+		}
+
+		// Clear the debug log file
+		$log_file = WP_CONTENT_DIR . '/debug.log';
+		if ( file_exists( $log_file ) ) {
+			file_put_contents( $log_file, '' );
+		}
+
+		// Redirect back
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'draftfly-settings',
+					'message' => 'logs_cleared',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Get logs via AJAX
+	 */
+	public function ajax_get_logs() {
+		// Check permissions
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+		}
+
+		$logs = $this->get_draftfly_logs();
+		wp_send_json_success( array( 'logs' => $logs ) );
+	}
+
+	/**
+	 * Get DraftFly logs from debug.log
+	 *
+	 * @param int $lines Number of lines to retrieve.
+	 * @return string
+	 */
+	private function get_draftfly_logs( $lines = 200 ) {
+		$log_file = WP_CONTENT_DIR . '/debug.log';
+
+		if ( ! file_exists( $log_file ) ) {
+			return __( 'No debug log file found. Make sure WP_DEBUG_LOG is enabled in wp-config.php', 'draftfly' );
+		}
+
+		// Read the file
+		$file_contents = file_get_contents( $log_file );
+		if ( empty( $file_contents ) ) {
+			return __( 'Debug log is empty.', 'draftfly' );
+		}
+
+		// Split into lines and filter for DraftFly entries
+		$all_lines     = explode( "\n", $file_contents );
+		$draftfly_logs = array();
+
+		foreach ( $all_lines as $line ) {
+			if ( strpos( $line, 'DraftFly:' ) !== false ) {
+				$draftfly_logs[] = $line;
+			}
+		}
+
+		if ( empty( $draftfly_logs ) ) {
+			return __( 'No DraftFly logs found in debug.log', 'draftfly' );
+		}
+
+		// Get last N lines
+		$recent_logs = array_slice( $draftfly_logs, -$lines );
+
+		return implode( "\n", $recent_logs );
+	}
+
+	/**
 	 * Render settings page
 	 */
 	public function render_settings_page() {
@@ -195,6 +306,8 @@ class DraftFly_Settings {
 				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'API key generated successfully!', 'draftfly' ) . '</p></div>';
 			} elseif ( 'key_revoked' === $message ) {
 				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'API key revoked successfully!', 'draftfly' ) . '</p></div>';
+			} elseif ( 'logs_cleared' === $message ) {
+				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Debug logs cleared successfully!', 'draftfly' ) . '</p></div>';
 			}
 		}
 		?>
@@ -319,10 +432,110 @@ curl -X GET "<?php echo esc_url( $site_url ); ?>/wp-json/draftfly/v1/health" \<b
 				</p>
 			</div>
 			<?php endif; ?>
+
+			<!-- Debug Logs -->
+			<div class="draftfly-card">
+				<h2><?php esc_html_e( 'Debug Logs', 'draftfly' ); ?></h2>
+				<p><?php esc_html_e( 'View DraftFly debug logs in real-time. Logs auto-refresh every 5 seconds.', 'draftfly' ); ?></p>
+
+				<div id="draftfly-logs-container" class="draftfly-logs">
+					<?php echo esc_html( $this->get_draftfly_logs() ); ?>
+				</div>
+
+				<div class="draftfly-log-actions">
+					<button type="button" class="button" id="draftfly-refresh-logs">
+						<?php esc_html_e( 'Refresh Now', 'draftfly' ); ?>
+					</button>
+
+					<button type="button" class="button" id="draftfly-toggle-auto-refresh">
+						<?php esc_html_e( 'Pause Auto-Refresh', 'draftfly' ); ?>
+					</button>
+
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
+						<input type="hidden" name="action" value="draftfly_clear_logs">
+						<?php wp_nonce_field( 'draftfly_clear_logs' ); ?>
+						<button type="submit" class="button button-secondary" onclick="return confirm('<?php esc_attr_e( 'Clear all debug logs? This cannot be undone.', 'draftfly' ); ?>')">
+							<?php esc_html_e( 'Clear Logs', 'draftfly' ); ?>
+						</button>
+					</form>
+				</div>
+
+				<p class="description" style="margin-top: 10px;">
+					<?php esc_html_e( 'Showing the last 200 DraftFly log entries from wp-content/debug.log', 'draftfly' ); ?>
+				</p>
+			</div>
 		</div>
 
 		<script>
 		let apiKeyVisible = false;
+		let autoRefreshEnabled = true;
+		let refreshInterval;
+
+		// Auto-refresh logs
+		function draftflyRefreshLogs() {
+			jQuery.ajax({
+				url: ajaxurl,
+				type: 'POST',
+				data: {
+					action: 'draftfly_get_logs'
+				},
+				success: function(response) {
+					if (response.success && response.data.logs) {
+						const logsContainer = document.getElementById('draftfly-logs-container');
+						const wasScrolledToBottom = logsContainer.scrollHeight - logsContainer.scrollTop === logsContainer.clientHeight;
+
+						logsContainer.textContent = response.data.logs;
+
+						// Auto-scroll to bottom if already at bottom
+						if (wasScrolledToBottom) {
+							logsContainer.scrollTop = logsContainer.scrollHeight;
+						}
+					}
+				}
+			});
+		}
+
+		// Start auto-refresh
+		function startAutoRefresh() {
+			if (!refreshInterval) {
+				refreshInterval = setInterval(draftflyRefreshLogs, 5000);
+			}
+		}
+
+		// Stop auto-refresh
+		function stopAutoRefresh() {
+			if (refreshInterval) {
+				clearInterval(refreshInterval);
+				refreshInterval = null;
+			}
+		}
+
+		// Initialize on page load
+		jQuery(document).ready(function($) {
+			// Start auto-refresh
+			startAutoRefresh();
+
+			// Refresh button
+			$('#draftfly-refresh-logs').on('click', function() {
+				draftflyRefreshLogs();
+			});
+
+			// Toggle auto-refresh
+			$('#draftfly-toggle-auto-refresh').on('click', function() {
+				autoRefreshEnabled = !autoRefreshEnabled;
+				if (autoRefreshEnabled) {
+					$(this).text('<?php esc_html_e( 'Pause Auto-Refresh', 'draftfly' ); ?>');
+					startAutoRefresh();
+				} else {
+					$(this).text('<?php esc_html_e( 'Resume Auto-Refresh', 'draftfly' ); ?>');
+					stopAutoRefresh();
+				}
+			});
+
+			// Scroll to bottom on load
+			const logsContainer = document.getElementById('draftfly-logs-container');
+			logsContainer.scrollTop = logsContainer.scrollHeight;
+		});
 
 		function draftflyCopyBaseUrl() {
 			const baseUrl = document.getElementById('draftfly-base-url').textContent;
